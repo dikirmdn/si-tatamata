@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "498246911307",
+    "project_id": "sitata-mata",
+    "storage_bucket": "sitata-mata.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:498246911307:android:94944a993532f8f17554ce",
+        "android_client_info": {
+          "package_name": "com.example.simata"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTWkh678liARmWx490pBK1MnzRW1Ma2_s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

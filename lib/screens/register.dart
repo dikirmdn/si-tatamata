@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:simata/screens/login.dart';
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -13,10 +15,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _usiaController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
   String? _selectedGender;
 
   final List<String> _genderOptions = ['Laki-laki', 'Perempuan'];
+
+  Future<void> _register() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        print('Memulai proses registrasi...');
+        print('Email: ${_emailController.text.trim()}');
+        
+        // Validasi data sebelum registrasi
+        if (_selectedGender == null) {
+          throw Exception('Jenis kelamin harus dipilih');
+        }
+
+        // Buat user baru dengan Firebase Auth
+        print('Mencoba membuat user di Firebase Auth...');
+        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+        print('User berhasil dibuat dengan UID: ${userCredential.user?.uid}');
+
+        // Simpan data tambahan ke Firestore
+        print('Menyimpan data ke Firestore...');
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          'nama': _namaController.text.trim(),
+          'jenis_kelamin': _selectedGender,
+          'usia': int.parse(_usiaController.text.trim()),
+          'email': _emailController.text.trim(),
+          'created_at': FieldValue.serverTimestamp(),
+        });
+        print('Data berhasil disimpan ke Firestore');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Pendaftaran berhasil!')),
+        );
+
+        // Navigate ke halaman login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => LoginScreen()),
+        );
+      } on FirebaseAuthException catch (e) {
+        print('Firebase Auth Error: ${e.code} - ${e.message}');
+        String message = 'Terjadi kesalahan';
+        if (e.code == 'weak-password') {
+          message = 'Password terlalu lemah';
+        } else if (e.code == 'email-already-in-use') {
+          message = 'Email sudah terdaftar';
+        } else if (e.code == 'invalid-email') {
+          message = 'Format email tidak valid';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      } catch (e) {
+        print('Error detail: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Terjadi kesalahan: ${e.toString()}')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -226,13 +298,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ],
                               ),
                               child: ElevatedButton(
-                                onPressed: () {
-                                  if (_formKey.currentState!.validate()) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Pendaftaran berhasil!')),
-                                    );
-                                  }
-                                },
+                                onPressed: _isLoading ? null : _register,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
@@ -241,7 +307,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                   padding: EdgeInsets.symmetric(vertical: 14),
                                 ),
-                                child: Text('Daftar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                child: _isLoading
+                                    ? CircularProgressIndicator(color: Colors.white)
+                                    : Text('Daftar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                               ),
                             ),
                           ),

@@ -1,45 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class TahapanPemberianObatScreen extends StatelessWidget {
-  const TahapanPemberianObatScreen({Key? key}) : super(key: key);
+class WajibDipatuhiScreen extends StatelessWidget {
+  const WajibDipatuhiScreen({Key? key}) : super(key: key);
 
-  final List<Map<String, dynamic>> tahapan = const [
+  final List<Map<String, dynamic>> poinWajib = const [
     {
-      'judul': '1. Cuci Tangan',
-      'deskripsi': 'Cuci tangan dengan sabun dan air.',
-      'icon': Icons.clean_hands,
-      'color': const Color(0xFF1565C0) // blue.shade800
+      'judul': 'Jangan Mencuci Area Mata',
+      'deskripsi': 'Dilarang mencuci area mata selama 1 minggu setelah operasi.',
+      'icon': Icons.visibility_off,
+      'color': Colors.red
     },
     {
-      'judul': '2. Posisi Tubuh dan Kepala',
-      'deskripsi': 'Berdiri atau duduk dengan tegak, posisi kepala mendongak sampai wajah mengarah ke langit-langit.',
-      'icon': Icons.accessibility_new,
-      'color': const Color(0xFF1976D2) // blue.shade700
+      'judul': 'Jangan Mengangkat Beban',
+      'deskripsi': 'Dilarang mengangkat benda di atas 5KG.',
+      'icon': Icons.fitness_center,
+      'color': Colors.blue
     },
     {
-      'judul': '3. Tarik Kantong Mata',
-      'deskripsi': 'Tarik kantong mata ke bawah dengan jari telunjuk.',
-      'icon': Icons.pan_tool_alt,
-      'color': const Color(0xFF1E88E5) // blue.shade600
+      'judul': 'Jangan Melakukan Gerakan Hentakan',
+      'deskripsi': 'Dilarang melakukan gerakan hentakan.',
+      'icon': Icons.directions_run,
+      'color': Colors.green
     },
     {
-      'judul': '4. Teteskan Obat',
-      'deskripsi': 'Teteskan obat mata ke dalam kantong mata.',
-      'icon': Icons.medical_services,
-      'color': const Color(0xFF2196F3) // blue.shade500
+      'judul': 'Jangan Berpergian dengan Kendaraan Terbuka',
+      'deskripsi': 'Dilarang berpergian dengan kendaraan terbuka.',
+      'icon': Icons.motorcycle,
+      'color': Colors.purple
     },
     {
-      'judul': '5. Tutup Mata',
-      'deskripsi': 'Tutup mata selama 2 - 3 menit, jangan berkedip.',
+      'judul': 'Jangan menggunakan kaos',
+      'deskripsi': 'Dilarang menggunakan baju kaos selama 1 Minggu',
+      'icon': Icons.checkroom,
+      'color': Colors.orange
+    },
+    {
+      'judul': 'Kacamata Pelindung',
+      'deskripsi': 'Selalu gunakan kacamata pelindung',
       'icon': Icons.remove_red_eye,
-      'color': const Color(0xFF42A5F5) // blue.shade400
+      'color': Colors.teal
     },
     {
-      'judul': '6. Dua Tetes',
-      'deskripsi': 'Jika harus pakai dua tetes, tunggu 5 menit dulu sebelum tetesan kedua.',
-      'icon': Icons.timer,
-      'color': const Color(0xFF64B5F6) // blue.shade300
+      'judul': 'Hindari',
+      'deskripsi': 'Hindari mata dari asap, debu, dan kotoran',
+      'icon': Icons.warning_amber_rounded,
+      'color': Colors.teal
     },
   ];
 
@@ -48,7 +54,7 @@ class TahapanPemberianObatScreen extends StatelessWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Tahapan Pemberian Obat', 
+        title: Text('Hal yang Wajib Dipatuhi', 
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22)
         ),
         backgroundColor: Colors.transparent,
@@ -63,9 +69,9 @@ class TahapanPemberianObatScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: const [
-              Color(0xFF1565C0), // blue.shade800
-              Color(0xFF64B5F6), // blue.shade300
+            colors: [
+              Colors.blue.shade800,
+              Colors.blue.shade200,
               Colors.white,
             ],
           ),
@@ -77,7 +83,7 @@ class TahapanPemberianObatScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Ikuti langkah-langkah berikut untuk meneteskan obat mata dengan benar:',
+                  'Berikut adalah hal-hal yang wajib dipatuhi setelah operasi mata:',
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -87,10 +93,10 @@ class TahapanPemberianObatScreen extends StatelessWidget {
                 SizedBox(height: 24),
                 Expanded(
                   child: ListView.separated(
-                    itemCount: tahapan.length,
+                    itemCount: poinWajib.length,
                     separatorBuilder: (context, index) => SizedBox(height: 16),
                     itemBuilder: (context, index) {
-                      final item = tahapan[index];
+                      final item = poinWajib[index];
                       return TweenAnimationBuilder(
                         tween: Tween<double>(begin: 0, end: 1),
                         duration: Duration(milliseconds: 400 + index * 100),
@@ -110,7 +116,7 @@ class TahapanPemberianObatScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF64B5F6).withOpacity(0.18), // blue.shade300
+                                color: Colors.blue.shade200.withOpacity(0.18),
                                 blurRadius: 16,
                                 offset: Offset(0, 6),
                               ),
@@ -142,7 +148,7 @@ class TahapanPemberianObatScreen extends StatelessWidget {
                                       style: GoogleFonts.poppins(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF1565C0), // blue.shade800
+                                        color: Colors.blue.shade800,
                                       ),
                                     ),
                                     SizedBox(height: 6),

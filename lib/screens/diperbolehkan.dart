@@ -1,45 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class TahapanPemberianObatScreen extends StatelessWidget {
-  const TahapanPemberianObatScreen({Key? key}) : super(key: key);
+class DiperbolehkanScreen extends StatelessWidget {
+  const DiperbolehkanScreen({Key? key}) : super(key: key);
 
-  final List<Map<String, dynamic>> tahapan = const [
+  final List<Map<String, dynamic>> poinDiperbolehkan = const [
     {
-      'judul': '1. Cuci Tangan',
-      'deskripsi': 'Cuci tangan dengan sabun dan air.',
+      'judul': 'Makanan',
+      'deskripsi': 'Tidak ada larangan atau pantangan makan (kecuali ada larangan dari dokter spesialis lain.)',
+      'icon': Icons.restaurant_menu,
+      'color': Colors.green
+    },
+    {
+      'judul': 'Membaca',
+      'deskripsi': 'Diperbolehkan membaca, menonton, dan menunduk.',
+      'icon': Icons.menu_book,
+      'color': Colors.orange
+    },
+    {
+      'judul': 'Istirahatkan Mata',
+      'deskripsi': 'Istirahatkan mata bila merasa lelah, hindari memaksakan mata terus menerus',
+      'icon': Icons.bedtime,
+      'color': Colors.blue
+    },
+    {
+      'judul': 'Membersihkan Mata',
+      'deskripsi': 'Kotoran mata dapat dibersihkan dengan kassa/cotton bud dan air mengalir, usap lembut dari arah dalam (dekat hidung). Hindari menggosok mata terlalu keras',
       'icon': Icons.clean_hands,
-      'color': const Color(0xFF1565C0) // blue.shade800
-    },
-    {
-      'judul': '2. Posisi Tubuh dan Kepala',
-      'deskripsi': 'Berdiri atau duduk dengan tegak, posisi kepala mendongak sampai wajah mengarah ke langit-langit.',
-      'icon': Icons.accessibility_new,
-      'color': const Color(0xFF1976D2) // blue.shade700
-    },
-    {
-      'judul': '3. Tarik Kantong Mata',
-      'deskripsi': 'Tarik kantong mata ke bawah dengan jari telunjuk.',
-      'icon': Icons.pan_tool_alt,
-      'color': const Color(0xFF1E88E5) // blue.shade600
-    },
-    {
-      'judul': '4. Teteskan Obat',
-      'deskripsi': 'Teteskan obat mata ke dalam kantong mata.',
-      'icon': Icons.medical_services,
-      'color': const Color(0xFF2196F3) // blue.shade500
-    },
-    {
-      'judul': '5. Tutup Mata',
-      'deskripsi': 'Tutup mata selama 2 - 3 menit, jangan berkedip.',
-      'icon': Icons.remove_red_eye,
-      'color': const Color(0xFF42A5F5) // blue.shade400
-    },
-    {
-      'judul': '6. Dua Tetes',
-      'deskripsi': 'Jika harus pakai dua tetes, tunggu 5 menit dulu sebelum tetesan kedua.',
-      'icon': Icons.timer,
-      'color': const Color(0xFF64B5F6) // blue.shade300
+      'color': Colors.purple
     },
   ];
 
@@ -48,13 +36,12 @@ class TahapanPemberianObatScreen extends StatelessWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Tahapan Pemberian Obat', 
+        title: Text('Hal yang Diperbolehkan', 
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22)
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Container(
         width: double.infinity,
@@ -63,9 +50,9 @@ class TahapanPemberianObatScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: const [
-              Color(0xFF1565C0), // blue.shade800
-              Color(0xFF64B5F6), // blue.shade300
+            colors: [
+              Colors.blue.shade800,
+              Colors.blue.shade200,
               Colors.white,
             ],
           ),
@@ -77,7 +64,7 @@ class TahapanPemberianObatScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Ikuti langkah-langkah berikut untuk meneteskan obat mata dengan benar:',
+                  'Berikut adalah hal-hal yang diperbolehkan setelah operasi mata:',
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -87,10 +74,10 @@ class TahapanPemberianObatScreen extends StatelessWidget {
                 SizedBox(height: 24),
                 Expanded(
                   child: ListView.separated(
-                    itemCount: tahapan.length,
+                    itemCount: poinDiperbolehkan.length,
                     separatorBuilder: (context, index) => SizedBox(height: 16),
                     itemBuilder: (context, index) {
-                      final item = tahapan[index];
+                      final item = poinDiperbolehkan[index];
                       return TweenAnimationBuilder(
                         tween: Tween<double>(begin: 0, end: 1),
                         duration: Duration(milliseconds: 400 + index * 100),
@@ -110,7 +97,7 @@ class TahapanPemberianObatScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF64B5F6).withOpacity(0.18), // blue.shade300
+                                color: Colors.blue.shade200.withOpacity(0.18),
                                 blurRadius: 16,
                                 offset: Offset(0, 6),
                               ),
@@ -142,7 +129,7 @@ class TahapanPemberianObatScreen extends StatelessWidget {
                                       style: GoogleFonts.poppins(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF1565C0), // blue.shade800
+                                        color: Colors.blue.shade800,
                                       ),
                                     ),
                                     SizedBox(height: 6),

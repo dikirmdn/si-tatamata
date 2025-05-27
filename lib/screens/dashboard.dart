@@ -1,7 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'jadwal_kontrol_screen.dart';
+import 'panduan_pasca_operasi.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({Key? key}) : super(key: key);
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  String userName = "Pengguna";
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _getUserName();
+  }
+
+  Future<void> _getUserName() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user != null) {
+        final DocumentSnapshot userDoc = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        
+        if (userDoc.exists) {
+          setState(() {
+            userName = userDoc.get('nama') ?? "Pengguna";
+          });
+        }
+      }
+    } catch (e) {
+      print("Error mengambil data pengguna: $e");
+    }
+  }
+
   final List<Map<String, dynamic>> menuItems = [
     {
       'title': 'Panduan Pasca Operasi',
@@ -62,7 +103,7 @@ class DashboardScreen extends StatelessWidget {
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.blue.shade900),
                         ),
                         Text(
-                          'SITATA MATA',
+                          userName,
                           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
                         ),
                       ],
@@ -141,7 +182,28 @@ class DashboardScreen extends StatelessWidget {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(18),
                           onTap: () {
-                            Navigator.pushNamed(context, item['route']);
+                            switch (item['route']) {
+                              case '/jadwal-kontrol':
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => JadwalKontrolScreen(),
+                                  ),
+                                );
+                                break;
+                              case '/panduan':
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PanduanPascaOperasiScreen(),
+                                  ),
+                                );
+                                break;
+                              default:
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Menu sedang dalam pengembangan")),
+                                );
+                            }
                           },
                           child: Container(
                             decoration: BoxDecoration(
