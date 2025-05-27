@@ -5,14 +5,10 @@ class BahayaObatTabletScreen extends StatelessWidget {
   const BahayaObatTabletScreen({Key? key}) : super(key: key);
 
   final List<String> tandaBahaya = const [
-    'Ruam kulit atau gatal-gatal setelah minum obat.',
-    'Bengkak pada wajah, bibir, lidah, atau tenggorokan.',
-    'Kesulitan bernapas atau sesak napas.',
-    'Mual, muntah hebat, atau diare terus-menerus.',
-    'Pusing berat atau pingsan.',
-    'Detak jantung tidak teratur atau berdebar hebat.',
-    'Mata atau kulit menguning (tanda gangguan hati).',
-    'Keluar darah pada urine atau tinja.',
+    'Ruam Kulit; muncul bercak merah, gatal, atau bentol di kulit, terutama sekitar wajah dan tubuh.',
+    'Gatal-gatal dan bengkak; terjadi gatal dan bengkak pada area mata, wajah, atau bahkan bibir dan lidah',
+    'Sulit bernapas atau sesak; Jika alergi cukup berat, kondisi seperti ini merupakan keadaan darurat.',
+
   ];
 
   @override
