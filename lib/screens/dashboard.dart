@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'jadwal_kontrol_screen.dart';
 import 'panduan_pasca_operasi.dart';
+import 'jadwal_obat_screen.dart';
+import 'catatan_harian_screen.dart';
+import 'profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -114,8 +117,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: IconButton(
                         icon: Icon(Icons.account_circle, size: 28, color: Colors.blue.shade700),
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Profil diklik")),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfileScreen(),
+                            ),
                           );
                         },
                       ),
@@ -196,6 +202,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => PanduanPascaOperasiScreen(),
+                                  ),
+                                );
+                                break;
+                              case '/jadwal-obat':
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => JadwalObatScreen(),
+                                  ),
+                                );
+                                break;
+                              case '/catatan-harian':
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CatatanHarianScreen(),
                                   ),
                                 );
                                 break;

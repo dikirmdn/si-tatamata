@@ -60,10 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
 
         // Navigate ke halaman login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => LoginScreen()),
-        );
+        Navigator.pushReplacementNamed(context, '/main');
       } on FirebaseAuthException catch (e) {
         print('Firebase Auth Error: ${e.code} - ${e.message}');
         String message = 'Terjadi kesalahan';

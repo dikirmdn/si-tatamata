@@ -85,10 +85,7 @@ class _GetStartedScreenState extends State<GetStartedScreen> with SingleTickerPr
                   duration: Duration(milliseconds: 200),
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => RegisterScreen()),
-                      );
+                      Navigator.pushNamed(context, '/login');
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade700,

@@ -12,8 +12,10 @@ import 'screens/diperbolehkan.dart';
 import 'screens/gejala_diwaspadai.dart';
 import 'screens/dashboard.dart';
 import 'screens/jadwal_kontrol_screen.dart';
+import 'screens/main_screen.dart';
+import 'screens/login.dart';
+import 'screens/register.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:simata/screens/register.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +42,9 @@ class SitataMataApp extends StatelessWidget {
       ),
       home: GetStartedScreen(),
       routes: {
+        '/login': (context) => LoginScreen(),
+        '/register': (context) => RegisterScreen(),
+        '/main': (context) => MainScreen(),
         '/panduan': (context) => PanduanPascaOperasiScreen(),
         '/panduan/aturan-obat': (context) => AturanPemakaianObatScreen(),
         '/panduan/wajib-dipatuhi': (context) => WajibDipatuhiScreen(),

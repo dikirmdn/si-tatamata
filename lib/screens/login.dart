@@ -24,49 +24,28 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        await _auth.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
-
-        if (userCredential.user != null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => DashboardScreen()),
-          );
-        }
+        Navigator.pushReplacementNamed(context, '/main');
       } on FirebaseAuthException catch (e) {
         String message;
-        
-        switch (e.code) {
-          case 'user-not-found':
-          case 'wrong-password':
-            message = 'Email atau password salah';
-            break;
-          case 'invalid-email':
-            message = 'Format email tidak valid';
-            break;
-          case 'user-disabled':
-            message = 'Akun telah dinonaktifkan';
-            break;
-          case 'too-many-requests':
-            message = 'Terlalu banyak percobaan login. Silakan coba lagi nanti';
-            break;
-          default:
-            message = 'Email atau Password salah';
+        if (e.code == 'user-not-found') {
+          message = 'Email atau password salah';
+        } else if (e.code == 'wrong-password') {
+          message = 'Email atau password salah';
+        } else {
+          message = 'Email atau Password Salah';
         }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
             backgroundColor: Colors.red,
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Terjadi kesalahan: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       } finally {

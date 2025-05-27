@@ -14,12 +14,12 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = '17'
     }
 
     defaultConfig {
@@ -38,6 +38,24 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.debug
+            setProperty("archivesBaseName", "Simata")
+        }
+    }
+
+    // Konfigurasi untuk mengubah nama APK
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def project = "Simata"
+            def separator = "_"
+            def buildType = variant.buildType.name
+            def versionName = variant.versionName
+            def versionCode = variant.versionCode
+            def date = new Date()
+            def formattedDate = date.format('ddMMyy_HHmm')
+
+            def newApkName = "${project}${separator}${buildType}${separator}${versionName}${separator}${versionCode}${separator}${formattedDate}.apk"
+
+            output.outputFileName = newApkName
         }
     }
 }

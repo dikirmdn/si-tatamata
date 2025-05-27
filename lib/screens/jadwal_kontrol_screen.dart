@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:add_2_calendar/add_2_calendar.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 
 class JadwalKontrolScreen extends StatefulWidget {
   @override
@@ -14,10 +20,12 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _showForm = false;
   
+  // Inisialisasi FlutterLocalNotificationsPlugin
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  
   // Controller untuk form
   final _judulController = TextEditingController();
   String _selectedDokter = '';
-  bool _tambahKeKalender = false;
   String _selectedLokasi = '';
   
   // State untuk tanggal dan waktu
@@ -26,7 +34,7 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
   
   // Daftar dokter (contoh)
   final List<String> _dokterList = [
-    'dr. Ahmad Sp.M',
+    'dr. Diki Sp.M',
     'dr. Sarah Sp.M',
     'dr. Budi Sp.M',
   ];
@@ -38,9 +46,68 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+  }
+
+  // Inisialisasi notifikasi
+  Future<void> _initializeNotifications() async {
+    // Inisialisasi timezone
+    tz.initializeTimeZones();
+    
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+        
+    final DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings(
+      requestSoundPermission: false,
+      requestBadgePermission: false,
+      requestAlertPermission: false,
+    );
+
+    final InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  // Fungsi untuk menampilkan notifikasi
+  Future<void> _showNotification(String title, String body, DateTime scheduledTime) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'jadwal_kontrol_channel',
+      'Jadwal Kontrol',
+      channelDescription: 'Notifikasi untuk jadwal kontrol',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    // Konversi DateTime ke TZDateTime
+    final scheduledDate = tz.TZDateTime.from(scheduledTime, tz.local);
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      0,
+      title,
+      body,
+      scheduledDate,
+      platformChannelSpecifics,
+      androidAllowWhileIdle: true,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text('Jadwal Kontrol', 
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22)
@@ -70,8 +137,10 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
                   stream: _firestore
+                      .collection('users')
+                      .doc(_auth.currentUser?.uid)
                       .collection('jadwal_kontrol')
-                      .where('userId', isEqualTo: _auth.currentUser?.uid)
+                      .orderBy('tanggal', descending: false)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
@@ -142,22 +211,85 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
                                       ),
                                       SizedBox(width: 16),
                                       Expanded(
-                                        child: Text(
-                                          jadwal['judul'],
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.blue.shade800,
-                                          ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              jadwal['judul'],
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue.shade800,
+                                              ),
+                                            ),
+                                            SizedBox(height: 4),
+                                            Text(
+                                              'Dokter: ${jadwal['dokter']}',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                       IconButton(
                                         icon: Icon(Icons.delete, color: Colors.red),
                                         onPressed: () async {
-                                          await _firestore
-                                              .collection('jadwal_kontrol')
-                                              .doc(jadwalId)
-                                              .delete();
+                                          // Menampilkan dialog konfirmasi
+                                          final bool? konfirmasi = await showDialog<bool>(
+                                            context: context,
+                                            builder: (BuildContext context) {
+                                              return AlertDialog(
+                                                title: Text(
+                                                  'Konfirmasi Hapus',
+                                                  style: GoogleFonts.poppins(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                content: Text(
+                                                  'Apakah Anda yakin ingin menghapus janji temu ini?',
+                                                  style: GoogleFonts.poppins(),
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.of(context).pop(false),
+                                                    child: Text(
+                                                      'Batal',
+                                                      style: GoogleFonts.poppins(
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () => Navigator.of(context).pop(true),
+                                                    child: Text(
+                                                      'Hapus',
+                                                      style: GoogleFonts.poppins(
+                                                        color: Colors.red,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          );
+
+                                          if (konfirmasi == true) {
+                                            await _firestore
+                                                .collection('users')
+                                                .doc(_auth.currentUser?.uid)
+                                                .collection('jadwal_kontrol')
+                                                .doc(jadwalId)
+                                                .delete();
+                                            
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Janji temu berhasil dihapus'),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                          }
                                         },
                                       ),
                                     ],
@@ -165,12 +297,26 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
                                   SizedBox(height: 12),
                                   Row(
                                     children: [
-                                      Icon(Icons.person, color: Colors.blue, size: 20),
+                                      Icon(Icons.calendar_today, color: Colors.blue, size: 20),
                                       SizedBox(width: 8),
                                       Text(
-                                        'Dokter: ${jadwal['dokter']}',
+                                        'Tanggal: ${(jadwal['tanggal'] as Timestamp).toDate().day}/${(jadwal['tanggal'] as Timestamp).toDate().month}/${(jadwal['tanggal'] as Timestamp).toDate().year}',
                                         style: GoogleFonts.poppins(
-                                          fontSize: 16,
+                                          fontSize: 14,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.access_time, color: Colors.blue, size: 20),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Waktu: ${jadwal['waktu']}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
                                           color: Colors.black87,
                                         ),
                                       ),
@@ -184,42 +330,38 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
                                       Text(
                                         'Lokasi: ${jadwal['lokasi']}',
                                         style: GoogleFonts.poppins(
-                                          fontSize: 16,
+                                          fontSize: 14,
                                           color: Colors.black87,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  if (jadwal['tambahKeKalender']) ...[
-                                    SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.calendar_today, color: Colors.blue, size: 20),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Tanggal: ${(jadwal['tanggal'] as Timestamp).toDate().day}/${(jadwal['tanggal'] as Timestamp).toDate().month}/${(jadwal['tanggal'] as Timestamp).toDate().year}',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ],
+                                  SizedBox(height: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      final Event event = Event(
+                                        title: jadwal['judul'],
+                                        description: 'Janji temu dengan ${jadwal['dokter']} di ${jadwal['lokasi']}',
+                                        location: jadwal['lokasi'],
+                                        startDate: (jadwal['tanggal'] as Timestamp).toDate(),
+                                        endDate: (jadwal['tanggal'] as Timestamp).toDate().add(Duration(hours: 1)),
+                                      );
+                                      Add2Calendar.addEvent2Cal(event);
+                                    },
+                                    icon: Icon(Icons.calendar_today, color: Colors.white),
+                                    label: Text(
+                                      'Tambah ke Kalender',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                    SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.access_time, color: Colors.blue, size: 20),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Waktu: ${jadwal['waktu']}',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ],
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
                                     ),
-                                  ],
+                                  ),
                                 ],
                               ),
                             ),
@@ -230,7 +372,10 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
                   },
                 ),
               ),
-              if (_showForm) _buildForm(),
+              if (_showForm) 
+                Expanded(
+                  child: _buildForm(),
+                ),
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: ElevatedButton(
@@ -279,233 +424,257 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
           ),
         ],
       ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _judulController,
-              decoration: InputDecoration(
-                labelText: 'Judul Janji',
-                labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: Icon(Icons.event_note, color: Colors.blue),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Judul janji harus diisi';
-                }
-                return null;
-              },
-            ),
-            SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedDokter.isEmpty ? null : _selectedDokter,
-              decoration: InputDecoration(
-                labelText: 'Pilih Dokter',
-                labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: Icon(Icons.person, color: Colors.blue),
-              ),
-              items: _dokterList.map((String dokter) {
-                return DropdownMenuItem<String>(
-                  value: dokter,
-                  child: Text(dokter, style: GoogleFonts.poppins()),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedDokter = newValue!;
-                });
-              },
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Silakan pilih dokter';
-                }
-                return null;
-              },
-            ),
-            SizedBox(height: 16),
-            CheckboxListTile(
-              title: Text('Tambah ke kalender', style: GoogleFonts.poppins()),
-              value: _tambahKeKalender,
-              activeColor: Colors.blue,
-              checkColor: Colors.white,
-              onChanged: (bool? value) {
-                setState(() {
-                  _tambahKeKalender = value!;
-                });
-              },
-            ),
-            if (_tambahKeKalender) ...[
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(Duration(days: 365)),
-                        );
-                        if (picked != null && picked != _selectedDate) {
-                          setState(() {
-                            _selectedDate = picked;
-                          });
-                        }
-                      },
-                      icon: Icon(Icons.calendar_today),
-                      label: Text(
-                        '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade800,
-                        minimumSize: Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final TimeOfDay? picked = await showTimePicker(
-                          context: context,
-                          initialTime: _selectedTime,
-                        );
-                        if (picked != null && picked != _selectedTime) {
-                          setState(() {
-                            _selectedTime = picked;
-                          });
-                        }
-                      },
-                      icon: Icon(Icons.access_time),
-                      label: Text(
-                        _selectedTime.format(context),
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade800,
-                        minimumSize: Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedLokasi.isEmpty ? null : _selectedLokasi,
-              decoration: InputDecoration(
-                labelText: 'Lokasi',
-                labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: Icon(Icons.location_on, color: Colors.blue),
-              ),
-              items: _lokasiList.map((String lokasi) {
-                return DropdownMenuItem<String>(
-                  value: lokasi,
-                  child: Text(lokasi, style: GoogleFonts.poppins()),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedLokasi = newValue!;
-                });
-              },
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Silakan pilih lokasi';
-                }
-                return null;
-              },
-            ),
-            SizedBox(height: 16),
-            Row(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      if (_formKey.currentState!.validate()) {
-                        try {
-                          await _firestore.collection('jadwal_kontrol').add({
-                            'userId': _auth.currentUser?.uid,
-                            'judul': _judulController.text,
-                            'dokter': _selectedDokter,
-                            'tambahKeKalender': _tambahKeKalender,
-                            'lokasi': _selectedLokasi,
-                            'tanggal': _tambahKeKalender ? Timestamp.fromDate(_selectedDate) : null,
-                            'waktu': _tambahKeKalender ? _selectedTime.format(context) : null,
-                            'createdAt': FieldValue.serverTimestamp(),
-                          });
-                          
-                          setState(() {
-                            _showForm = false;
-                            _resetForm();
-                          });
-                          
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Jadwal berhasil ditambahkan')),
-                          );
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Gagal menambahkan jadwal: $e')),
-                          );
-                        }
-                      }
-                    },
-                    icon: Icon(Icons.check),
-                    label: Text('Kirim Janji', 
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                      )
+                TextFormField(
+                  controller: _judulController,
+                  decoration: InputDecoration(
+                    labelText: 'Judul Janji',
+                    labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade800,
-                      minimumSize: Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    prefixIcon: Icon(Icons.event_note, color: Colors.blue),
                   ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Judul janji harus diisi';
+                    }
+                    return null;
+                  },
                 ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _resetForm,
-                    icon: Icon(Icons.delete),
-                    label: Text('Hapus Janji', style: GoogleFonts.poppins()),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      minimumSize: Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedDokter.isEmpty ? null : _selectedDokter,
+                  decoration: InputDecoration(
+                    labelText: 'Pilih Dokter',
+                    labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: Icon(Icons.person, color: Colors.blue),
+                  ),
+                  items: _dokterList.map((String dokter) {
+                    return DropdownMenuItem<String>(
+                      value: dokter,
+                      child: Text(dokter, style: GoogleFonts.poppins()),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedDokter = newValue!;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Silakan pilih dokter';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(Duration(days: 365)),
+                          );
+                          if (picked != null && picked != _selectedDate) {
+                            setState(() {
+                              _selectedDate = picked;
+                            });
+                          }
+                        },
+                        icon: Icon(Icons.calendar_today),
+                        label: Text(
+                          '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade800,
+                          minimumSize: Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final TimeOfDay? picked = await showTimePicker(
+                            context: context,
+                            initialTime: _selectedTime,
+                          );
+                          if (picked != null && picked != _selectedTime) {
+                            setState(() {
+                              _selectedTime = picked;
+                            });
+                          }
+                        },
+                        icon: Icon(Icons.access_time),
+                        label: Text(
+                          _selectedTime.format(context),
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade800,
+                          minimumSize: Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedLokasi.isEmpty ? null : _selectedLokasi,
+                  decoration: InputDecoration(
+                    labelText: 'Lokasi',
+                    labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: Icon(Icons.location_on, color: Colors.blue),
                   ),
+                  items: _lokasiList.map((String lokasi) {
+                    return DropdownMenuItem<String>(
+                      value: lokasi,
+                      child: Text(lokasi, style: GoogleFonts.poppins()),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedLokasi = newValue!;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Silakan pilih lokasi';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          if (_formKey.currentState!.validate()) {
+                            try {
+                              // Gabungkan tanggal dan waktu
+                              final DateTime scheduledDateTime = DateTime(
+                                _selectedDate.year,
+                                _selectedDate.month,
+                                _selectedDate.day,
+                                _selectedTime.hour,
+                                _selectedTime.minute,
+                              );
+
+                              // Waktu notifikasi (1 jam sebelum)
+                              final DateTime notificationTime = scheduledDateTime.subtract(Duration(hours: 1));
+
+                              await _firestore
+                                  .collection('users')
+                                  .doc(_auth.currentUser?.uid)
+                                  .collection('jadwal_kontrol')
+                                  .add({
+                                'judul': _judulController.text,
+                                'dokter': _selectedDokter,
+                                'lokasi': _selectedLokasi,
+                                'tanggal': Timestamp.fromDate(_selectedDate),
+                                'waktu': _selectedTime.format(context),
+                                'createdAt': FieldValue.serverTimestamp(),
+                              });
+
+                              // Set notifikasi
+                              await _showNotification(
+                                'Pengingat Jadwal Kontrol',
+                                'Anda memiliki jadwal kontrol dengan ${_selectedDokter} di ${_selectedLokasi} dalam 1 jam',
+                                notificationTime,
+                              );
+                              
+                              // Reset form dan sembunyikan
+                              _resetForm();
+                              if (mounted) {
+                                setState(() {
+                                  _showForm = false;
+                                });
+                              }
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Jadwal berhasil ditambahkan dan pengingat telah diatur'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Gagal menambahkan jadwal: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        icon: Icon(Icons.check),
+                        label: Text('Kirim Janji', 
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                          )
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade800,
+                          minimumSize: Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _resetForm,
+                        icon: Icon(Icons.delete),
+                        label: Text('Hapus Janji', style: GoogleFonts.poppins()),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          minimumSize: Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -514,7 +683,6 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
   void _resetForm() {
     _judulController.clear();
     _selectedDokter = '';
-    _tambahKeKalender = false;
     _selectedLokasi = '';
     _selectedDate = DateTime.now();
     _selectedTime = TimeOfDay.now();
