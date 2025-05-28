@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
+import 'dart:typed_data';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._();
@@ -11,6 +12,7 @@ class NotificationService {
 
   Future<void> initialize() async {
     tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
     
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
@@ -27,30 +29,60 @@ class NotificationService {
     await _notifications.initialize(initSettings);
   }
 
+  // Method untuk kompatibilitas dengan kode lama
   Future<void> scheduleNotification({
     required int id,
     required String title,
     required String body,
     required DateTime scheduledTime,
   }) async {
+    return scheduleAlarm(
+      id: id,
+      title: title,
+      body: body,
+      scheduledTime: scheduledTime,
+      isAlarm: false,
+    );
+  }
+
+  Future<void> scheduleAlarm({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+    bool isAlarm = true,
+  }) async {
+    final androidDetails = AndroidNotificationDetails(
+      'jadwal_kontrol_channel',
+      'Jadwal Kontrol',
+      channelDescription: 'Notifikasi untuk jadwal kontrol',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]),
+      enableLights: true,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+      channelShowBadge: true,
+      visibility: NotificationVisibility.public,
+    );
+
+    final iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
     await _notifications.zonedSchedule(
       id,
       title,
       body,
       tz.TZDateTime.from(scheduledTime, tz.local),
       NotificationDetails(
-        android: AndroidNotificationDetails(
-          'jadwal_obat_channel',
-          'Jadwal Obat',
-          channelDescription: 'Notifikasi untuk pengingat jadwal obat',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
+        android: androidDetails,
+        iOS: iosDetails,
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,

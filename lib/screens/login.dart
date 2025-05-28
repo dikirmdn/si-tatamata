@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:simata/screens/dashboard.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'register.dart';
 import 'dart:ui';
 
@@ -11,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isLoading = false;
@@ -24,23 +25,65 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
+        print('Memulai proses login...');
+        print('Username: ${_usernameController.text.trim()}');
+        
+        // Cari user berdasarkan username
+        print('Mencoba mencari user di Firestore...');
+        final userQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('username', isEqualTo: _usernameController.text.trim())
+            .limit(1)  // Batasi hanya 1 hasil
+            .get();
+        print('Hasil pencarian: ${userQuery.docs.length} dokumen ditemukan');
+
+        if (userQuery.docs.isEmpty) {
+          throw FirebaseAuthException(
+            code: 'user-not-found',
+            message: 'Username atau password salah',
+          );
+        }
+
+        // Dapatkan email dummy dari username
+        String dummyEmail = '${_usernameController.text.trim()}@simata.app';
+        print('Mencoba login dengan email: $dummyEmail');
+        
+        // Login menggunakan email dummy
         await _auth.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
+          email: dummyEmail,
           password: _passwordController.text,
         );
+        print('Login berhasil');
+        
         Navigator.pushReplacementNamed(context, '/main');
       } on FirebaseAuthException catch (e) {
+        print('Firebase Auth Error: ${e.code} - ${e.message}');
         String message;
         if (e.code == 'user-not-found') {
-          message = 'Email atau password salah';
+          message = 'Username atau password salah';
         } else if (e.code == 'wrong-password') {
-          message = 'Email atau password salah';
+          message = 'Username atau password salah';
+        } else if (e.code == 'permission-denied') {
+          message = 'Terjadi kesalahan akses. Silakan coba lagi nanti.';
         } else {
-          message = 'Email atau Password Salah';
+          message = 'Username atau Password Salah';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      } catch (e) {
+        print('Error detail: $e');
+        print('Error stack trace: ${StackTrace.current}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: ${e.toString()}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -148,21 +191,30 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           SizedBox(height: 24),
-                          // Email
+                          // Username (menggantikan Email)
                           TextFormField(
-                            controller: _emailController,
+                            controller: _usernameController,
                             decoration: InputDecoration(
-                              labelText: 'Email',
+                              labelText: 'Username',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              prefixIcon: Icon(Icons.email_outlined),
+                              prefixIcon: Icon(Icons.person),
                               filled: true,
                               fillColor: Colors.blue.shade50.withOpacity(0.2),
                             ),
-                            keyboardType: TextInputType.emailAddress,
-                            validator: (value) =>
-                                value!.isEmpty ? 'Email wajib diisi' : null,
+                            validator: (value) {
+                              if (value!.isEmpty) {
+                                return 'Username wajib diisi';
+                              }
+                              if (value.length < 4) {
+                                return 'Username minimal 4 karakter';
+                              }
+                              if (value.contains(' ')) {
+                                return 'Username tidak boleh mengandung spasi';
+                              }
+                              return null;
+                            },
                           ),
                           SizedBox(height: 16),
                           // Password

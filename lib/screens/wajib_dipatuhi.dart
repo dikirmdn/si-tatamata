@@ -55,7 +55,7 @@ class WajibDipatuhiScreen extends StatelessWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text('Hal yang Wajib Dipatuhi', 
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22)
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white)
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,

@@ -13,7 +13,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _usiaController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
 
@@ -29,28 +29,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       try {
         print('Memulai proses registrasi...');
-        print('Email: ${_emailController.text.trim()}');
+        print('Username: ${_usernameController.text.trim()}');
         
         // Validasi data sebelum registrasi
         if (_selectedGender == null) {
           throw Exception('Jenis kelamin harus dipilih');
         }
 
-        // Buat user baru dengan Firebase Auth
+        // Buat user baru dengan Firebase Auth menggunakan email dummy
         print('Mencoba membuat user di Firebase Auth...');
+        String dummyEmail = '${_usernameController.text.trim()}@simata.app';
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
+          email: dummyEmail,
           password: _passwordController.text,
         );
         print('User berhasil dibuat dengan UID: ${userCredential.user?.uid}');
 
+        // Cek apakah username sudah ada
+        print('Mencoba mengecek username di Firestore...');
+        final usernameQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('username', isEqualTo: _usernameController.text.trim())
+            .get();
+        print('Hasil pengecekan username: ${usernameQuery.docs.length} dokumen ditemukan');
+
+        if (usernameQuery.docs.isNotEmpty) {
+          // Jika username sudah ada, hapus user yang baru dibuat
+          await userCredential.user?.delete();
+          throw Exception('Username sudah digunakan');
+        }
+
         // Simpan data tambahan ke Firestore
-        print('Menyimpan data ke Firestore...');
+        print('Mencoba menyimpan data ke Firestore...');
         await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
           'nama': _namaController.text.trim(),
+          'username': _usernameController.text.trim(),
           'jenis_kelamin': _selectedGender,
           'usia': int.parse(_usiaController.text.trim()),
-          'email': _emailController.text.trim(),
           'created_at': FieldValue.serverTimestamp(),
         });
         print('Data berhasil disimpan ke Firestore');
@@ -67,15 +82,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (e.code == 'weak-password') {
           message = 'Password terlalu lemah';
         } else if (e.code == 'email-already-in-use') {
-          message = 'Email sudah terdaftar';
-        } else if (e.code == 'invalid-email') {
-          message = 'Format email tidak valid';
+          message = 'Username sudah terdaftar';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message)),
         );
       } catch (e) {
         print('Error detail: $e');
+        print('Error stack trace: ${StackTrace.current}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Terjadi kesalahan: ${e.toString()}')),
         );
@@ -239,27 +253,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 value!.isEmpty ? 'Usia wajib diisi' : null,
                           ),
                           SizedBox(height: 16),
-                          // Email
+                          // Username (menggantikan Email)
                           TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
+                            controller: _usernameController,
                             decoration: InputDecoration(
-                              labelText: 'Email',
+                              labelText: 'Username',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              prefixIcon: Icon(Icons.email_outlined),
+                              prefixIcon: Icon(Icons.person),
                               filled: true,
                               fillColor: Colors.blue.shade50.withOpacity(0.2),
                             ),
-                            validator: (value) =>
-                                value!.isEmpty ? 'Email wajib diisi' : null,
+                            validator: (value) {
+                              if (value!.isEmpty) {
+                                return 'Username wajib diisi';
+                              }
+                              if (value.length < 4) {
+                                return 'Username minimal 4 karakter';
+                              }
+                              if (value.contains(' ')) {
+                                return 'Username tidak boleh mengandung spasi';
+                              }
+                              return null;
+                            },
                           ),
                           SizedBox(height: 16),
                           // Password
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Password wajib diisi';
+                              }
+                              if (value.length < 6) {
+                                return 'Password minimal 6 karakter';
+                              }
+                              return null;
+                            },
                             decoration: InputDecoration(
                               labelText: 'Password',
                               border: OutlineInputBorder(
@@ -268,9 +300,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               prefixIcon: Icon(Icons.lock_outline),
                               filled: true,
                               fillColor: Colors.blue.shade50.withOpacity(0.2),
+                              errorStyle: TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
                             ),
-                            validator: (value) =>
-                                value!.length < 6 ? 'Minimal 6 karakter' : null,
                           ),
                           SizedBox(height: 28),
                           // Tombol Daftar dengan efek gradient
@@ -323,7 +357,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                           ),
                           SizedBox(height: 12),
-                          Row(
+                          Row(  
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Sudah punya akun? ", style: TextStyle(color: Colors.blueGrey.shade700)),

@@ -79,7 +79,7 @@ class _CatatanDetailScreenState extends State<CatatanDetailScreen> {
       appBar: AppBar(
         title: Text(
           'Detail Catatan',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,

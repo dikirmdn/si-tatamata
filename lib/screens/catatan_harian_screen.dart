@@ -35,8 +35,11 @@ class _CatatanHarianScreenState extends State<CatatanHarianScreen> {
 
   Future<void> _tambahCatatan() async {
     try {
+      print('Memulai proses penambahan catatan...');
       final User? user = _auth.currentUser;
       if (user != null) {
+        print('User ID: ${user.uid}');
+        print('Mencoba menambahkan catatan ke Firestore...');
         await _firestore
             .collection('users')
             .doc(user.uid)
@@ -47,6 +50,7 @@ class _CatatanHarianScreenState extends State<CatatanHarianScreen> {
           'tanggal': _tanggalController.text,
           'createdAt': FieldValue.serverTimestamp(),
         });
+        print('Catatan berhasil ditambahkan');
 
         _judulController.clear();
         _isiController.clear();
@@ -54,8 +58,13 @@ class _CatatanHarianScreenState extends State<CatatanHarianScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Catatan berhasil ditambahkan')),
         );
+      } else {
+        print('User tidak ditemukan');
+        throw Exception('User tidak ditemukan');
       }
     } catch (e) {
+      print('Error saat menambahkan catatan: $e');
+      print('Error stack trace: ${StackTrace.current}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -64,19 +73,29 @@ class _CatatanHarianScreenState extends State<CatatanHarianScreen> {
 
   Future<void> _hapusCatatan(String docId) async {
     try {
+      print('Memulai proses penghapusan catatan...');
       final User? user = _auth.currentUser;
       if (user != null) {
+        print('User ID: ${user.uid}');
+        print('Mencoba menghapus catatan dari Firestore...');
         await _firestore
             .collection('users')
             .doc(user.uid)
             .collection('catatan')
             .doc(docId)
             .delete();
+        print('Catatan berhasil dihapus');
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Catatan berhasil dihapus')),
         );
+      } else {
+        print('User tidak ditemukan');
+        throw Exception('User tidak ditemukan');
       }
     } catch (e) {
+      print('Error saat menghapus catatan: $e');
+      print('Error stack trace: ${StackTrace.current}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -89,7 +108,7 @@ class _CatatanHarianScreenState extends State<CatatanHarianScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text('Catatan Harian', 
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22)
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white)
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -259,6 +278,8 @@ class _CatatanHarianScreenState extends State<CatatanHarianScreen> {
                                         fontSize: 16,
                                         color: Colors.black87,
                                       ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
                                 ),

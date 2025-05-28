@@ -52,162 +52,255 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final TextEditingController confirmPasswordController = TextEditingController();
     bool isLoading = false;
 
-    return showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Ubah Password',
-            style: TextStyle(
-              color: Colors.blue.shade900,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Container(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
+    void showErrorSnackBar(String message) {
+      OverlayEntry? overlayEntry;
+      overlayEntry = OverlayEntry(
+        builder: (context) => Positioned(
+          top: MediaQuery.of(context).padding.top + 50,
+          left: 16,
+          right: 16,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
                   ),
-                  child: TextField(
-                    controller: currentPasswordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password Saat Ini',
-                      border: InputBorder.none,
-                      prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade700),
-                    ),
-                    obscureText: true,
-                  ),
-                ),
-                SizedBox(height: 16),
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TextField(
-                    controller: newPasswordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password Baru',
-                      border: InputBorder.none,
-                      prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade700),
-                    ),
-                    obscureText: true,
-                  ),
-                ),
-                SizedBox(height: 16),
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TextField(
-                    controller: confirmPasswordController,
-                    decoration: InputDecoration(
-                      labelText: 'Konfirmasi Password Baru',
-                      border: InputBorder.none,
-                      prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade700),
-                    ),
-                    obscureText: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: isLoading ? null : () => Navigator.pop(context),
-              child: Text(
-                'Batal',
-                style: TextStyle(color: Colors.grey.shade600),
+                ],
               ),
-            ),
-            ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      if (newPasswordController.text.length < 6) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Password baru minimal 6 karakter')),
-                        );
-                        return;
-                      }
-
-                      if (newPasswordController.text != confirmPasswordController.text) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Password baru tidak cocok')),
-                        );
-                        return;
-                      }
-
-                      setState(() => isLoading = true);
-
-                      try {
-                        final user = _auth.currentUser;
-                        final credential = EmailAuthProvider.credential(
-                          email: user!.email!,
-                          password: currentPasswordController.text,
-                        );
-
-                        await user.reauthenticateWithCredential(credential);
-                        await user.updatePassword(newPasswordController.text);
-
-                        // Update password di Firestore
-                        await _firestore.collection('users').doc(user.uid).update({
-                          'password_updated_at': FieldValue.serverTimestamp(),
-                        });
-
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Password berhasil diubah'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      } catch (e) {
-                        setState(() => isLoading = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Gagal mengubah password: ${e.toString()}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: Colors.white),
+                    onPressed: () {
+                      overlayEntry?.remove();
                     },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                  ),
+                ],
               ),
-              child: isLoading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Text(
-                      'Simpan',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+
+      Overlay.of(context).insert(overlayEntry);
+      Future.delayed(Duration(seconds: 3), () {
+        overlayEntry?.remove();
+      });
+    }
+
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
+                  ),
+                  Text(
+                    'Ubah Password',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      controller: currentPasswordController,
+                      decoration: InputDecoration(
+                        labelText: 'Password Saat Ini',
+                        border: InputBorder.none,
+                        prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade700),
+                      ),
+                      obscureText: true,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      controller: newPasswordController,
+                      decoration: InputDecoration(
+                        labelText: 'Password Baru',
+                        border: InputBorder.none,
+                        prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade700),
+                      ),
+                      obscureText: true,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      controller: confirmPasswordController,
+                      decoration: InputDecoration(
+                        labelText: 'Konfirmasi Password Baru',
+                        border: InputBorder.none,
+                        prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade700),
+                      ),
+                      obscureText: true,
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: isLoading ? null : () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Batal',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () async {
+                                  if (newPasswordController.text.length < 6) {
+                                    showErrorSnackBar('Password baru minimal 6 karakter');
+                                    return;
+                                  }
+
+                                  if (newPasswordController.text != confirmPasswordController.text) {
+                                    showErrorSnackBar('Konfirmasi Password harus sesuai');
+                                    return;
+                                  }
+
+                                  if (newPasswordController.text == currentPasswordController.text) {
+                                    showErrorSnackBar('Password Baru Tidak Boleh Sama dengan Yang Lama');
+                                    return;
+                                  }
+
+                                  setState(() => isLoading = true);
+
+                                  try {
+                                    final user = _auth.currentUser;
+                                    final credential = EmailAuthProvider.credential(
+                                      email: user!.email!,
+                                      password: currentPasswordController.text,
+                                    );
+
+                                    await user.reauthenticateWithCredential(credential);
+                                    await user.updatePassword(newPasswordController.text);
+
+                                    await _firestore.collection('users').doc(user.uid).update({
+                                      'password_updated_at': FieldValue.serverTimestamp(),
+                                    });
+
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Password berhasil diubah'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    setState(() => isLoading = false);
+                                    if (e.toString().contains('wrong-password') || 
+                                        e.toString().contains('invalid-credential') ||
+                                        e.toString().contains('invalid-password')) {
+                                      showErrorSnackBar('Password lama salah');
+                                    } else {
+                                      showErrorSnackBar('Gagal mengubah password: ${e.toString()}');
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade700,
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: isLoading
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : Text(
+                                  'Simpan',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -220,6 +313,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Gagal keluar: $e")),
+      );
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user != null) {
+        // Hapus data dari Firestore terlebih dahulu
+        await _firestore.collection('users').doc(user.uid).delete();
+        
+        // Kemudian hapus akun dari Firebase Auth
+        await user.delete();
+        
+        // Navigate ke halaman login
+        Navigator.of(context).pushReplacementNamed('/');
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Akun berhasil dihapus'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menghapus akun: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -359,6 +482,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       SizedBox(width: 8),
                       Text(
                         'Keluar',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 16),
+              // Delete Account Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text('Hapus Akun'),
+                          content: Text('Apakah Anda yakin ingin menghapus akun? Tindakan ini tidak dapat dibatalkan.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text('TIDAK'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                _deleteAccount();
+                              },
+                              child: Text(
+                                'YA',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.delete_forever, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'Hapus Akun',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.white,

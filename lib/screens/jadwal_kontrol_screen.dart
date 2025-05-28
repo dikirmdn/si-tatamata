@@ -5,9 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:add_2_calendar/add_2_calendar.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:permission_handler/permission_handler.dart';
+import '../services/notification_service.dart';
 
 class JadwalKontrolScreen extends StatefulWidget {
   @override
@@ -18,10 +17,8 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
   final _formKey = GlobalKey<FormState>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificationService _notificationService = NotificationService();
   bool _showForm = false;
-  
-  // Inisialisasi FlutterLocalNotificationsPlugin
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   
   // Controller untuk form
   final _judulController = TextEditingController();
@@ -35,7 +32,7 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
   // Daftar dokter (contoh)
   final List<String> _dokterList = [
     'dr. Diki Sp.M',
-    'dr. Sarah Sp.M',
+    'dr. Saddam S.Kom',
     'dr. Budi Sp.M',
   ];
 
@@ -53,53 +50,66 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
 
   // Inisialisasi notifikasi
   Future<void> _initializeNotifications() async {
-    // Inisialisasi timezone
-    tz.initializeTimeZones();
-    
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-        
-    final DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-      requestSoundPermission: false,
-      requestBadgePermission: false,
-      requestAlertPermission: false,
-    );
+    try {
+      // Request permission untuk notifikasi
+      if (Platform.isAndroid) {
+        await Permission.notification.request();
+      }
 
-    final InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
-
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+      await _notificationService.initialize();
+      print('Notifikasi berhasil diinisialisasi');
+    } catch (e) {
+      print('Error inisialisasi notifikasi: $e');
+    }
   }
 
-  // Fungsi untuk menampilkan notifikasi
-  Future<void> _showNotification(String title, String body, DateTime scheduledTime) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'jadwal_kontrol_channel',
-      'Jadwal Kontrol',
-      channelDescription: 'Notifikasi untuk jadwal kontrol',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
+  // Fungsi untuk menjadwalkan notifikasi
+  Future<void> _scheduleNotifications(String docId, String judul, String dokter, String lokasi, DateTime scheduledTime) async {
+    final now = DateTime.now();
+    
+    // Notifikasi 1 hari sebelum
+    final oneDayBefore = scheduledTime.subtract(Duration(days: 1));
+    if (oneDayBefore.isAfter(now)) {
+      await _notificationService.scheduleAlarm(
+        id: (docId.hashCode.abs() % 2147483647) + 1,
+        title: 'Pengingat Jadwal Kontrol Besok',
+        body: 'Anda memiliki jadwal kontrol dengan $dokter di $lokasi besok pada pukul ${_selectedTime.format(context)}',
+        scheduledTime: oneDayBefore,
+        isAlarm: true,
+      );
+    }
 
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
+    // Notifikasi 1 jam sebelum
+    final oneHourBefore = scheduledTime.subtract(Duration(hours: 1));
+    if (oneHourBefore.isAfter(now)) {
+      await _notificationService.scheduleAlarm(
+        id: (docId.hashCode.abs() % 2147483647) + 2,
+        title: 'Pengingat Jadwal Kontrol',
+        body: 'Anda memiliki jadwal kontrol dengan $dokter di $lokasi dalam 1 jam',
+        scheduledTime: oneHourBefore,
+        isAlarm: true,
+      );
+    }
 
-    // Konversi DateTime ke TZDateTime
-    final scheduledDate = tz.TZDateTime.from(scheduledTime, tz.local);
+    // Notifikasi 15 menit sebelum
+    final fifteenMinutesBefore = scheduledTime.subtract(Duration(minutes: 15));
+    if (fifteenMinutesBefore.isAfter(now)) {
+      await _notificationService.scheduleAlarm(
+        id: (docId.hashCode.abs() % 2147483647) + 3,
+        title: 'Pengingat Jadwal Kontrol',
+        body: 'Anda memiliki jadwal kontrol dengan $dokter di $lokasi dalam 15 menit',
+        scheduledTime: fifteenMinutesBefore,
+        isAlarm: true,
+      );
+    }
 
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      0,
-      title,
-      body,
-      scheduledDate,
-      platformChannelSpecifics,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+    // Notifikasi pada waktu jadwal
+    await _notificationService.scheduleAlarm(
+      id: (docId.hashCode.abs() % 2147483647) + 4,
+      title: 'Waktunya Kontrol',
+      body: 'Anda memiliki jadwal kontrol dengan $dokter di $lokasi sekarang',
+      scheduledTime: scheduledTime,
+      isAlarm: true,
     );
   }
 
@@ -110,7 +120,7 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text('Jadwal Kontrol', 
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22)
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white)
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -581,65 +591,7 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            try {
-                              // Gabungkan tanggal dan waktu
-                              final DateTime scheduledDateTime = DateTime(
-                                _selectedDate.year,
-                                _selectedDate.month,
-                                _selectedDate.day,
-                                _selectedTime.hour,
-                                _selectedTime.minute,
-                              );
-
-                              // Waktu notifikasi (1 jam sebelum)
-                              final DateTime notificationTime = scheduledDateTime.subtract(Duration(hours: 1));
-
-                              await _firestore
-                                  .collection('users')
-                                  .doc(_auth.currentUser?.uid)
-                                  .collection('jadwal_kontrol')
-                                  .add({
-                                'judul': _judulController.text,
-                                'dokter': _selectedDokter,
-                                'lokasi': _selectedLokasi,
-                                'tanggal': Timestamp.fromDate(_selectedDate),
-                                'waktu': _selectedTime.format(context),
-                                'createdAt': FieldValue.serverTimestamp(),
-                              });
-
-                              // Set notifikasi
-                              await _showNotification(
-                                'Pengingat Jadwal Kontrol',
-                                'Anda memiliki jadwal kontrol dengan ${_selectedDokter} di ${_selectedLokasi} dalam 1 jam',
-                                notificationTime,
-                              );
-                              
-                              // Reset form dan sembunyikan
-                              _resetForm();
-                              if (mounted) {
-                                setState(() {
-                                  _showForm = false;
-                                });
-                              }
-                              
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Jadwal berhasil ditambahkan dan pengingat telah diatur'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Gagal menambahkan jadwal: $e'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        },
+                        onPressed: _tambahJadwalKontrol,
                         icon: Icon(Icons.check),
                         label: Text('Kirim Janji', 
                           style: GoogleFonts.poppins(
@@ -686,6 +638,68 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
     _selectedLokasi = '';
     _selectedDate = DateTime.now();
     _selectedTime = TimeOfDay.now();
+  }
+
+  Future<void> _tambahJadwalKontrol() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        final DateTime scheduledDateTime = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          _selectedTime.hour,
+          _selectedTime.minute,
+        );
+
+        // Buat referensi dokumen baru
+        final docRef = _firestore
+            .collection('users')
+            .doc(_auth.currentUser?.uid)
+            .collection('jadwal_kontrol')
+            .doc();
+
+        // Simpan data ke Firestore
+        await docRef.set({
+          'judul': _judulController.text,
+          'dokter': _selectedDokter,
+          'lokasi': _selectedLokasi,
+          'tanggal': Timestamp.fromDate(_selectedDate),
+          'waktu': _selectedTime.format(context),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Jadwalkan notifikasi
+        await _scheduleNotifications(
+          docRef.id,
+          _judulController.text,
+          _selectedDokter,
+          _selectedLokasi,
+          scheduledDateTime,
+        );
+
+        // Reset form dan sembunyikan
+        _resetForm();
+        if (mounted) {
+          setState(() {
+            _showForm = false;
+          });
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Jadwal berhasil ditambahkan dan pengingat telah diatur'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menambahkan jadwal: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override

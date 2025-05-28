@@ -13,6 +13,7 @@ class JadwalObatScreen extends StatefulWidget {
 }
 
 class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final NotificationService _notificationService = NotificationService();
@@ -79,6 +80,7 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
       curve: Curves.easeInOut,
     );
     _initializeNotifications();
+    _showForm = false;
   }
 
   Future<void> _initializeNotifications() async {
@@ -104,14 +106,28 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
       }
 
       // Buat ID unik untuk setiap notifikasi
-      final notificationId = int.parse('${docId.hashCode}${i}');
+      final notificationId = (docId.hashCode.abs() % 2147483647) + i;
       
-      await _notificationService.scheduleNotification(
+      // Set alarm untuk waktu minum obat
+      await _notificationService.scheduleAlarm(
         id: notificationId,
-        title: 'Pengingat Minum Obat',
+        title: 'Waktunya Minum Obat',
         body: 'Waktunya minum $namaObat pada pukul ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
         scheduledTime: scheduledTime,
+        isAlarm: true,
       );
+
+      // Set pengingat 5 menit sebelum
+      final fiveMinutesBefore = scheduledTime.subtract(Duration(minutes: 5));
+      if (fiveMinutesBefore.isAfter(now)) {
+        await _notificationService.scheduleAlarm(
+          id: notificationId + 1000, // ID berbeda untuk pengingat
+          title: 'Pengingat Minum Obat',
+          body: 'Anda akan minum $namaObat dalam 5 menit',
+          scheduledTime: fiveMinutesBefore,
+          isAlarm: false, // Pengingat tidak menggunakan alarm
+        );
+      }
     }
   }
 
@@ -159,107 +175,23 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
     }
   }
 
-  Future<void> _tambahJadwalObat() async {
-    if (_namaObatController.text.isEmpty || 
-        _selectedFrekuensi == null ||
-        _selectedWaktuMakan == null ||
-        _selectedDurasi == null ||
-        (_selectedSediaan == 'Lain-Lain' && _sediaanManualController.text.isEmpty) ||
-        (_selectedDurasi == 'Lain-lain' && _durasiManualController.text.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mohon isi semua field')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final User? user = _auth.currentUser;
-      if (user == null) {
-        throw Exception('User tidak terautentikasi');
-      }
-
-      if (_waktuMinumList.isEmpty) {
-        throw Exception('Waktu minum harus dipilih');
-      }
-
-      String waktuMinumString = _waktuMinumList.map((time) => 
-        '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'
-      ).join(', ');
-
-      // Buat referensi dokumen baru
-      final docRef = _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('jadwal_obat')
-          .doc();
-
-      // Simpan data ke Firestore
-      await docRef.set({
-        'nama_obat': _namaObatController.text.trim(),
-        'sediaan': _selectedSediaan == 'Lain-Lain' ? _sediaanManualController.text.trim() : _selectedSediaan,
-        'frekuensi': _selectedFrekuensi,
-        'waktu_minum': waktuMinumString,
-        'waktu_makan': _selectedWaktuMakan,
-        'durasi': _selectedDurasi == 'Lain-lain' ? _durasiManualController.text.trim() : _selectedDurasi,
-        'tanggal_dibuat': FieldValue.serverTimestamp(),
-        'user_id': user.uid,
-      });
-
-      // Jadwalkan notifikasi
-      await _scheduleNotifications(
-        docRef.id,
-        _namaObatController.text.trim(),
-        _waktuMinumList,
-      );
-
-      // Reset form dan state
-      _namaObatController.clear();
-      _sediaanManualController.clear();
-      _durasiManualController.clear();
-      setState(() {
-        _waktuMinum = TimeOfDay.now();
-        _waktuMinumList = [_waktuMinum];
-        _selectedSediaan = 'Sediaan Obat/Jenis';
-        _selectedFrekuensi = null;
-        _selectedWaktuMakan = null;
-        _selectedDurasi = null;
-        _showSediaanManual = false;
-        _showDurasiManual = false;
-      });
-
-      _animationController.reverse().then((_) {
-        setState(() {
-          _showForm = false;
-        });
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Jadwal obat berhasil ditambahkan')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Terjadi kesalahan: ${e.toString()}')),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: Text('Jadwal Obat', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.blue.shade800,
+        title: Text('Jadwal Obat', 
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white)
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -407,7 +339,10 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
                                           if (konfirmasi == true) {
                                             await doc.reference.delete();
                                             ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Jadwal obat dihapus')),
+                                              SnackBar(
+                                                content: Text('Jadwal obat berhasil dihapus'),
+                                                backgroundColor: Colors.green,
+                                              ),
                                             );
                                           }
                                         },
@@ -478,11 +413,6 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
                   onPressed: () {
                     setState(() {
                       _showForm = !_showForm;
-                      if (_showForm) {
-                        _animationController.forward();
-                      } else {
-                        _animationController.reverse();
-                      }
                     });
                   },
                   style: ElevatedButton.styleFrom(
@@ -491,6 +421,7 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 4,
                   ),
                   child: Text(
                     _showForm ? 'Batal Tambah Jadwal' : 'Tambah Jadwal Obat',
@@ -530,260 +461,215 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
             bottom: MediaQuery.of(context).viewInsets.bottom + 16,
           ),
           child: Form(
+            key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Tambah Jadwal Obat',
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 16),
-                TextField(
+                TextFormField(
                   controller: _namaObatController,
                   decoration: InputDecoration(
                     labelText: 'Nama Obat',
+                    labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    prefixIcon: Icon(Icons.medication),
+                    prefixIcon: Icon(Icons.medication, color: Colors.blue),
                   ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Nama obat harus diisi';
+                    }
+                    return null;
+                  },
                 ),
                 SizedBox(height: 16),
-                // Dropdown Sediaan Obat
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedSediaan,
-                      isExpanded: true,
-                      icon: Icon(Icons.arrow_drop_down),
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                      items: _sediaanList.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedSediaan = newValue;
-                            _showSediaanManual = newValue == 'Lain-Lain';
-                            if (!_showSediaanManual) {
-                              _sediaanManualController.clear();
-                            }
-                          });
-                        }
-                      },
+                DropdownButtonFormField<String>(
+                  value: _selectedSediaan == 'Sediaan Obat/Jenis' ? null : _selectedSediaan,
+                  decoration: InputDecoration(
+                    labelText: 'Sediaan Obat',
+                    labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    prefixIcon: Icon(Icons.medication_liquid, color: Colors.blue),
                   ),
+                  items: _sediaanList.skip(1).map((String sediaan) {
+                    return DropdownMenuItem<String>(
+                      value: sediaan,
+                      child: Text(sediaan, style: GoogleFonts.poppins()),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedSediaan = newValue;
+                        _showSediaanManual = newValue == 'Lain-Lain';
+                        if (!_showSediaanManual) {
+                          _sediaanManualController.clear();
+                        }
+                      });
+                    }
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Silakan pilih sediaan obat';
+                    }
+                    return null;
+                  },
                 ),
-                // Field Manual untuk Sediaan Lain-lain
                 if (_showSediaanManual) ...[
                   SizedBox(height: 16),
-                  TextField(
+                  TextFormField(
                     controller: _sediaanManualController,
                     decoration: InputDecoration(
                       labelText: 'Sebutkan Sediaan Obat',
+                      labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      prefixIcon: Icon(Icons.edit),
+                      prefixIcon: Icon(Icons.edit, color: Colors.blue),
                     ),
+                    validator: (value) {
+                      if (_showSediaanManual && (value == null || value.isEmpty)) {
+                        return 'Sediaan obat harus diisi';
+                      }
+                      return null;
+                    },
                   ),
                 ],
                 SizedBox(height: 16),
-                // Dropdown Frekuensi
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(10),
+                DropdownButtonFormField<String>(
+                  value: _selectedFrekuensi,
+                  decoration: InputDecoration(
+                    labelText: 'Frekuensi Pemakaian',
+                    labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: Icon(Icons.repeat, color: Colors.blue),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.repeat, color: Colors.grey),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedFrekuensi,
-                            hint: Text(
-                              'Frekuensi Pemakaian',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            isExpanded: true,
-                            icon: Icon(Icons.arrow_drop_down),
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                            items: _frekuensiList.skip(1).map((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              if (newValue != null) {
-                                setState(() {
-                                  _selectedFrekuensi = newValue;
-                                  // Hitung ulang waktu minum jika frekuensi berubah
-                                  if (_waktuMinumList.isNotEmpty) {
-                                    _hitungWaktuMinum(_waktuMinumList[0]);
-                                  }
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  items: _frekuensiList.skip(1).map((String frekuensi) {
+                    return DropdownMenuItem<String>(
+                      value: frekuensi,
+                      child: Text(frekuensi, style: GoogleFonts.poppins()),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedFrekuensi = newValue;
+                        if (_waktuMinumList.isNotEmpty) {
+                          _hitungWaktuMinum(_waktuMinumList[0]);
+                        }
+                      });
+                    }
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Silakan pilih frekuensi pemakaian';
+                    }
+                    return null;
+                  },
                 ),
                 SizedBox(height: 16),
-                // Dropdown Waktu Makan
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(10),
+                DropdownButtonFormField<String>(
+                  value: _selectedWaktuMakan,
+                  decoration: InputDecoration(
+                    labelText: 'Waktu Makan',
+                    labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: Icon(Icons.restaurant, color: Colors.blue),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.restaurant, color: Colors.grey),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedWaktuMakan,
-                            hint: Text(
-                              'Waktu Makan',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            isExpanded: true,
-                            icon: Icon(Icons.arrow_drop_down),
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                            items: _waktuMakanList.skip(1).map((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              if (newValue != null) {
-                                setState(() {
-                                  _selectedWaktuMakan = newValue;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  items: _waktuMakanList.skip(1).map((String waktu) {
+                    return DropdownMenuItem<String>(
+                      value: waktu,
+                      child: Text(waktu, style: GoogleFonts.poppins()),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedWaktuMakan = newValue;
+                      });
+                    }
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Silakan pilih waktu makan';
+                    }
+                    return null;
+                  },
                 ),
                 SizedBox(height: 16),
-                // Dropdown Durasi
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(10),
+                DropdownButtonFormField<String>(
+                  value: _selectedDurasi,
+                  decoration: InputDecoration(
+                    labelText: 'Durasi Pemakaian',
+                    labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: Icon(Icons.calendar_today, color: Colors.blue),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.calendar_today, color: Colors.grey),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedDurasi,
-                            hint: Text(
-                              'Durasi Pemakaian',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            isExpanded: true,
-                            icon: Icon(Icons.arrow_drop_down),
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                            items: _durasiList.skip(1).map((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              if (newValue != null) {
-                                setState(() {
-                                  _selectedDurasi = newValue;
-                                  _showDurasiManual = newValue == 'Lain-lain';
-                                  if (!_showDurasiManual) {
-                                    _durasiManualController.clear();
-                                  }
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  items: _durasiList.skip(1).map((String durasi) {
+                    return DropdownMenuItem<String>(
+                      value: durasi,
+                      child: Text(durasi, style: GoogleFonts.poppins()),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedDurasi = newValue;
+                        _showDurasiManual = newValue == 'Lain-lain';
+                        if (!_showDurasiManual) {
+                          _durasiManualController.clear();
+                        }
+                      });
+                    }
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Silakan pilih durasi pemakaian';
+                    }
+                    return null;
+                  },
                 ),
-                // Field Manual untuk Durasi Lain-lain
                 if (_showDurasiManual) ...[
                   SizedBox(height: 16),
-                  TextField(
+                  TextFormField(
                     controller: _durasiManualController,
                     decoration: InputDecoration(
                       labelText: 'Sebutkan Durasi Minum',
+                      labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      prefixIcon: Icon(Icons.edit),
+                      prefixIcon: Icon(Icons.edit, color: Colors.blue),
                     ),
+                    validator: (value) {
+                      if (_showDurasiManual && (value == null || value.isEmpty)) {
+                        return 'Durasi minum harus diisi';
+                      }
+                      return null;
+                    },
                   ),
                 ],
                 SizedBox(height: 16),
-                // Waktu Minum
                 InkWell(
                   onTap: _pilihWaktu,
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.access_time, color: Colors.grey),
+                        Icon(Icons.access_time, color: Colors.blue),
                         SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -793,7 +679,7 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
                                 'Waktu Pemakaian',
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
-                                  color: Colors.grey,
+                                  color: Colors.blue.shade800,
                                 ),
                               ),
                               SizedBox(height: 4),
@@ -815,11 +701,167 @@ class _JadwalObatScreenState extends State<JadwalObatScreen> with SingleTickerPr
                     ),
                   ),
                 ),
+                SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isLoading ? null : () async {
+                          if (_formKey.currentState!.validate()) {
+                            await _tambahJadwalObat();
+                          }
+                        },
+                        icon: Icon(Icons.check),
+                        label: Text('Simpan', 
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                          )
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade800,
+                          minimumSize: Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _resetForm,
+                        icon: Icon(Icons.delete),
+                        label: Text('Reset', style: GoogleFonts.poppins()),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          minimumSize: Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _resetForm() {
+    _namaObatController.clear();
+    _sediaanManualController.clear();
+    _durasiManualController.clear();
+    setState(() {
+      _waktuMinum = TimeOfDay.now();
+      _waktuMinumList = [_waktuMinum];
+      _selectedSediaan = 'Sediaan Obat/Jenis';
+      _selectedFrekuensi = null;
+      _selectedWaktuMakan = null;
+      _selectedDurasi = null;
+      _showSediaanManual = false;
+      _showDurasiManual = false;
+    });
+  }
+
+  Future<void> _tambahJadwalObat() async {
+    if (_namaObatController.text.isEmpty || 
+        _selectedFrekuensi == null ||
+        _selectedWaktuMakan == null ||
+        _selectedDurasi == null ||
+        (_selectedSediaan == 'Lain-Lain' && _sediaanManualController.text.isEmpty) ||
+        (_selectedDurasi == 'Lain-lain' && _durasiManualController.text.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mohon isi semua field'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User tidak terautentikasi');
+      }
+
+      if (_waktuMinumList.isEmpty) {
+        throw Exception('Waktu minum harus dipilih');
+      }
+
+      String waktuMinumString = _waktuMinumList.map((time) => 
+        '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'
+      ).join(', ');
+
+      // Buat referensi dokumen baru
+      final docRef = _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('jadwal_obat')
+          .doc();
+
+      // Simpan data ke Firestore
+      await docRef.set({
+        'nama_obat': _namaObatController.text.trim(),
+        'sediaan': _selectedSediaan == 'Lain-Lain' ? _sediaanManualController.text.trim() : _selectedSediaan,
+        'frekuensi': _selectedFrekuensi,
+        'waktu_minum': waktuMinumString,
+        'waktu_makan': _selectedWaktuMakan,
+        'durasi': _selectedDurasi == 'Lain-lain' ? _durasiManualController.text.trim() : _selectedDurasi,
+        'tanggal_dibuat': FieldValue.serverTimestamp(),
+        'user_id': user.uid,
+      });
+
+      // Jadwalkan notifikasi
+      await _scheduleNotifications(
+        docRef.id,
+        _namaObatController.text.trim(),
+        _waktuMinumList,
+      );
+
+      // Reset form dan state
+      _namaObatController.clear();
+      _sediaanManualController.clear();
+      _durasiManualController.clear();
+      setState(() {
+        _waktuMinum = TimeOfDay.now();
+        _waktuMinumList = [_waktuMinum];
+        _selectedSediaan = 'Sediaan Obat/Jenis';
+        _selectedFrekuensi = null;
+        _selectedWaktuMakan = null;
+        _selectedDurasi = null;
+        _showSediaanManual = false;
+        _showDurasiManual = false;
+        _showForm = false;
+      });
+
+      _animationController.reverse();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Jadwal obat berhasil ditambahkan dan pengingat telah diatur'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Terjadi kesalahan: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 } 
