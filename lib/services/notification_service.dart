@@ -26,7 +26,41 @@ class NotificationService {
       iOS: iosSettings,
     );
     
-    await _notifications.initialize(initSettings);
+    await _notifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Handle notification click
+        if (response.payload != null) {
+          // Buka aplikasi
+          _notifications.getNotificationAppLaunchDetails().then((details) {
+            if (details?.didNotificationLaunchApp ?? false) {
+              // Aplikasi akan terbuka otomatis
+            }
+          });
+        }
+      },
+    );
+    
+    // Buat channel notifikasi dengan suara dan getaran
+    final androidChannel = AndroidNotificationChannel(
+      'jadwal_kontrol_channel',
+      'Jadwal Kontrol',
+      description: 'Notifikasi untuk jadwal kontrol',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 1000, 1000, 1000, 1000, 1000]),
+      sound: RawResourceAndroidNotificationSound('alarm'),
+    );
+    
+    final androidPlugin = _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidPlugin != null) {
+      await androidPlugin.createNotificationChannel(androidChannel);
+      // Request izin getaran
+      await androidPlugin.requestPermission();
+    }
   }
 
   // Method untuk kompatibilitas dengan kode lama
@@ -59,19 +93,25 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.high,
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('alarm'),
       enableVibration: true,
-      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]),
+      vibrationPattern: Int64List.fromList([0, 1000, 1000, 1000, 1000, 1000]),
       enableLights: true,
       fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
       channelShowBadge: true,
       visibility: NotificationVisibility.public,
+      additionalFlags: Int32List.fromList(<int>[4]), // FLAG_INSISTENT
+      actions: <AndroidNotificationAction>[
+        const AndroidNotificationAction('open_app', 'Buka Aplikasi'),
+      ],
     );
 
     final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'alarm.wav',
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
@@ -86,6 +126,7 @@ class NotificationService {
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      payload: 'open_app', // Payload untuk membuka aplikasi
     );
   }
 

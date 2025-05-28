@@ -22,6 +22,8 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
   
   // Controller untuk form
   final _judulController = TextEditingController();
+  final _dokterController = TextEditingController();
+  final _lokasiController = TextEditingController();
   String _selectedDokter = '';
   String _selectedLokasi = '';
   
@@ -463,30 +465,19 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
                   },
                 ),
                 SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedDokter.isEmpty ? null : _selectedDokter,
+                TextFormField(
+                  controller: _dokterController,
                   decoration: InputDecoration(
-                    labelText: 'Pilih Dokter',
+                    labelText: 'Nama Dokter',
                     labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     prefixIcon: Icon(Icons.person, color: Colors.blue),
                   ),
-                  items: _dokterList.map((String dokter) {
-                    return DropdownMenuItem<String>(
-                      value: dokter,
-                      child: Text(dokter, style: GoogleFonts.poppins()),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedDokter = newValue!;
-                    });
-                  },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Silakan pilih dokter';
+                      return 'Nama dokter harus diisi';
                     }
                     return null;
                   },
@@ -558,8 +549,8 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
                   ],
                 ),
                 SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedLokasi.isEmpty ? null : _selectedLokasi,
+                TextFormField(
+                  controller: _lokasiController,
                   decoration: InputDecoration(
                     labelText: 'Lokasi',
                     labelStyle: GoogleFonts.poppins(color: Colors.blue.shade800),
@@ -568,20 +559,9 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
                     ),
                     prefixIcon: Icon(Icons.location_on, color: Colors.blue),
                   ),
-                  items: _lokasiList.map((String lokasi) {
-                    return DropdownMenuItem<String>(
-                      value: lokasi,
-                      child: Text(lokasi, style: GoogleFonts.poppins()),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedLokasi = newValue!;
-                    });
-                  },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Silakan pilih lokasi';
+                      return 'Lokasi harus diisi';
                     }
                     return null;
                   },
@@ -634,8 +614,8 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
 
   void _resetForm() {
     _judulController.clear();
-    _selectedDokter = '';
-    _selectedLokasi = '';
+    _dokterController.clear();
+    _lokasiController.clear();
     _selectedDate = DateTime.now();
     _selectedTime = TimeOfDay.now();
   }
@@ -661,8 +641,8 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
         // Simpan data ke Firestore
         await docRef.set({
           'judul': _judulController.text,
-          'dokter': _selectedDokter,
-          'lokasi': _selectedLokasi,
+          'dokter': _dokterController.text,
+          'lokasi': _lokasiController.text,
           'tanggal': Timestamp.fromDate(_selectedDate),
           'waktu': _selectedTime.format(context),
           'createdAt': FieldValue.serverTimestamp(),
@@ -672,8 +652,8 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
         await _scheduleNotifications(
           docRef.id,
           _judulController.text,
-          _selectedDokter,
-          _selectedLokasi,
+          _dokterController.text,
+          _lokasiController.text,
           scheduledDateTime,
         );
 
@@ -705,6 +685,8 @@ class _JadwalKontrolScreenState extends State<JadwalKontrolScreen> {
   @override
   void dispose() {
     _judulController.dispose();
+    _dokterController.dispose();
+    _lokasiController.dispose();
     super.dispose();
   }
 } 

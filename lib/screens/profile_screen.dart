@@ -16,6 +16,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userEmail = "";
   String userAge = "";
   String userGender = "";
+  String username = "";
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             userEmail = user.email ?? "";
             userAge = userDoc.get('usia')?.toString() ?? "";
             userGender = userDoc.get('jenis_kelamin') ?? "";
+            username = userDoc.get('username') ?? "";
           });
         }
       }
@@ -424,7 +426,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     _buildInfoRow(Icons.person, "Nama", userName),
                     Divider(),
-                    _buildInfoRow(Icons.email, "Email", userEmail),
+                    _buildInfoRow(Icons.account_circle, "Username", username),
                     Divider(),
                     _buildInfoRow(Icons.person_outline, "Jenis Kelamin", userGender),
                     Divider(),

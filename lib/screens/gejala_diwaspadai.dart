@@ -115,7 +115,7 @@ class GejalaDiwaspadaiScreen extends StatelessWidget {
                                   color: gejala['level'] == 'Kritis' 
                                     ? Colors.red.withOpacity(0.1)
                                     : Colors.orange.withOpacity(0.1),
-                                  shape: BoxShape.circle,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Image.asset(
                                   gejala['image'],
